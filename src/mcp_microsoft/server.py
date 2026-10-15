@@ -22,11 +22,13 @@ from fastmcp import FastMCP
 
 from mcp_microsoft.config import AppConfig, get_app_config, validate_http_config
 from mcp_microsoft.feature_flags import (
+    is_delta_enabled,
     is_file_upload_enabled,
     is_sharepoint_enabled,
     is_teams_ai_insights_enabled,
     is_teams_enabled,
     is_teams_meeting_artifacts_enabled,
+    is_todo_enabled,
     resolve_upload_global_budget_bytes,
     resolve_upload_max_bytes,
 )
@@ -46,10 +48,11 @@ def build_graph_authorize_scopes(config: AppConfig) -> list[str]:
 
     Mirrors ``profiles.build_default_scopes`` semantics but emits the full
     ``https://graph.microsoft.com/<Scope>`` URI form that AzureProvider forwards
-    upstream. ``DEFAULT_SCOPES`` are always present; Teams/SharePoint scopes are
-    added only when their feature flag resolves True (in http mode the flags are
-    env-only — no corporate-profile fallback). ``offline_access`` is appended
-    unprefixed because it is an OIDC scope, not a Graph resource scope.
+    upstream. ``DEFAULT_SCOPES`` are always present; Teams/SharePoint/To Do
+    scopes are added only when their feature flag resolves True (in http mode
+    the flags are env-only — no corporate-profile fallback). ``offline_access``
+    is appended unprefixed because it is an OIDC scope, not a Graph resource
+    scope.
     """
     from mcp_microsoft.profiles import (
         DEFAULT_SCOPES,
@@ -57,6 +60,7 @@ def build_graph_authorize_scopes(config: AppConfig) -> list[str]:
         TEAMS_AI_INSIGHT_SCOPES,
         TEAMS_MEETING_ARTIFACT_SCOPES,
         TEAMS_SCOPES,
+        TODO_SCOPES,
     )
 
     graph_scopes: list[str] = list(DEFAULT_SCOPES)
@@ -68,6 +72,8 @@ def build_graph_authorize_scopes(config: AppConfig) -> list[str]:
             graph_scopes.extend(TEAMS_AI_INSIGHT_SCOPES)
     if is_sharepoint_enabled(config=config):
         graph_scopes.extend(SHAREPOINT_SCOPES)
+    if is_todo_enabled(config=config):
+        graph_scopes.extend(TODO_SCOPES)
 
     deduped = list(dict.fromkeys(graph_scopes))
     scopes = [f"{_GRAPH_RESOURCE}/{scope}" for scope in deduped]
@@ -500,8 +506,11 @@ def create_mcp_server(config: AppConfig | None = None) -> FastMCP:
             )
 
     from mcp_microsoft.tools import attachments
+    from mcp_microsoft.tools import batch
     from mcp_microsoft.tools import calendar
     from mcp_microsoft.tools import contacts
+    from mcp_microsoft.tools import delta
+    from mcp_microsoft.tools import digest
     from mcp_microsoft.tools import drafts
     from mcp_microsoft.tools import folders
     from mcp_microsoft.tools import mail
@@ -509,6 +518,7 @@ def create_mcp_server(config: AppConfig | None = None) -> FastMCP:
     from mcp_microsoft.tools import profiles
     from mcp_microsoft.tools import services
     from mcp_microsoft.tools import sharepoint
+    from mcp_microsoft.tools import todo
 
     mail.register(mcp)
     drafts.register(mcp)
@@ -536,6 +546,19 @@ def create_mcp_server(config: AppConfig | None = None) -> FastMCP:
         teams.register(mcp)
     else:
         _log.info("Teams tools not registered (service disabled)")
+
+    # role_obot#23: To Do (Tasks) and delta/batch/digest tool groups.
+    if is_todo_enabled(config=runtime_config):
+        todo.register(mcp)
+    else:
+        _log.info("To Do tools not registered (service disabled)")
+
+    if is_delta_enabled(config=runtime_config):
+        delta.register(mcp)
+        batch.register(mcp)
+        digest.register(mcp)
+    else:
+        _log.info("Delta/batch/digest tools not registered (service disabled)")
 
     services.register(mcp)
 

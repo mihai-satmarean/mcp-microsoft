@@ -168,9 +168,18 @@ SHAREPOINT_SCOPES: list[str] = [
     "Sites.ReadWrite.All",
 ]
 
+# role_obot#23: Microsoft To Do (Tasks) delegated permission. Not covered by
+# DEFAULT_SCOPES — Mail/Calendars/Contacts/Files scopes don't grant Tasks
+# access, so the todo.py tool group needs this requested explicitly.
+TODO_SCOPES: list[str] = [
+    "Tasks.ReadWrite",
+]
+
 
 def build_default_scopes(profile_name: str | None = None) -> list[str]:
     """Build the consent scope list for profiles without explicit overrides."""
+    from mcp_microsoft.feature_flags import is_todo_enabled
+
     scopes = list(DEFAULT_SCOPES)
     teams_enabled = resolve_optional_service_enabled("MCP_ENABLE_TEAMS", profile_name)
     if teams_enabled:
@@ -181,6 +190,8 @@ def build_default_scopes(profile_name: str | None = None) -> list[str]:
         scopes.extend(TEAMS_AI_INSIGHT_SCOPES)
     if resolve_optional_service_enabled("MCP_ENABLE_SHAREPOINT", profile_name):
         scopes.extend(SHAREPOINT_SCOPES)
+    if is_todo_enabled():
+        scopes.extend(TODO_SCOPES)
     return list(dict.fromkeys(scopes))
 
 # ---------------------------------------------------------------------------

@@ -27,6 +27,12 @@ class AppConfig:
     enable_sharepoint: bool | None = None
     enable_teams_meeting_artifacts: bool | None = None
     enable_teams_ai_insights: bool | None = None
+    # role_obot#23: To Do (Tasks) and delta/batch/digest tool groups. Unlike
+    # Teams/SharePoint these default ON (no corporate-account gating) since
+    # they use the same Mail/Calendar/Contacts/Tasks scopes already requested
+    # by the core tool groups — set explicitly to False to omit them.
+    enable_todo: bool | None = None
+    enable_delta: bool | None = None
     disable_deletion_tools: bool = False
     # Transport / remote (http) mode. stdio mode ignores every MCP_HTTP_* /
     # MCP_AUTH_* value below.
@@ -80,6 +86,8 @@ class AppConfig:
             enable_sharepoint=env_flag("MCP_ENABLE_SHAREPOINT"),
             enable_teams_meeting_artifacts=env_flag("MCP_ENABLE_TEAMS_MEETING_ARTIFACTS"),
             enable_teams_ai_insights=env_flag("MCP_ENABLE_TEAMS_AI_INSIGHTS"),
+            enable_todo=env_flag("MCP_ENABLE_TODO"),
+            enable_delta=env_flag("MCP_ENABLE_DELTA"),
             disable_deletion_tools=bool(env_flag("MCP_DISABLE_DELETION_TOOLS")),
             transport=os.environ.get("MCP_TRANSPORT", "stdio").strip().lower() or "stdio",
             http_host=os.environ.get("MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1",

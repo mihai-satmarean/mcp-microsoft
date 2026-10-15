@@ -1184,3 +1184,272 @@ class MeetingAiInsightDetailResponse(MeetingAiInsightInfo):
     meeting_notes: list[MeetingAiInsightNote] = Field(default_factory=list)
     action_items: list[MeetingAiInsightActionItem] = Field(default_factory=list)
     viewpoint: MeetingAiInsightViewpoint = Field(default_factory=MeetingAiInsightViewpoint)
+
+
+# ---------------------------------------------------------------------------
+# save_attachment_to_path — role_obot#23, ported from OraCool/outlook-mcp's
+# tools/email_reader.py (save_attachment_to_path)
+# ---------------------------------------------------------------------------
+
+
+class SaveAttachmentToPathResponse(ActionResult):
+    email_id: str = ""
+    attachment_id: str = ""
+    file_path: str = ""
+    filename: str = ""
+    size_bytes: int = 0
+    size_display: str = ""
+    content_type: str = ""
+
+
+# ---------------------------------------------------------------------------
+# To Do (Microsoft To Do tasks) models — role_obot#23, ported from
+# mpalermiti/outlook-mcp's tools/todo.py and tools/todo_attachments.py
+# ---------------------------------------------------------------------------
+
+
+class TodoListInfo(MCPModel):
+    id: str = ""
+    display_name: str = ""
+    is_default: bool = False
+
+
+class ListTodoListsResponse(MCPModel):
+    count: int = 0
+    task_lists: list[TodoListInfo] = Field(default_factory=list)
+
+
+class TodoTaskSummary(MCPModel):
+    id: str = ""
+    title: str = ""
+    status: str = ""
+    importance: str = ""
+    due: str | None = None
+    completed: str | None = None
+    created_at: str = ""
+    is_reminder_on: bool = False
+    has_recurrence: bool = False
+
+
+class ListTodoTasksResponse(MCPModel):
+    list_id: str | None = None
+    count: int = 0
+    tasks: list[TodoTaskSummary] = Field(default_factory=list)
+    next_page_token: str | None = None
+    has_more: bool = False
+
+
+class ChecklistItemInfo(MCPModel):
+    id: str = ""
+    display_name: str = ""
+    is_checked: bool = False
+    checked_at: str = ""
+    created_at: str = ""
+
+
+class TodoTaskDetailResponse(MCPModel):
+    id: str = ""
+    list_id: str = ""
+    title: str = ""
+    status: str = ""
+    importance: str = ""
+    due: str | None = None
+    completed: str | None = None
+    created_at: str = ""
+    is_reminder_on: bool = False
+    body: str = ""
+    has_recurrence: bool = False
+    checklist_items: list[ChecklistItemInfo] = Field(default_factory=list)
+    checklist_count: int = 0
+
+
+class CreateTodoTaskResponse(ActionResult):
+    task_id: str = ""
+    list_id: str = ""
+    title: str = ""
+
+
+class UpdateTodoTaskResponse(ActionResult):
+    task_id: str = ""
+    list_id: str = ""
+    updated_fields: list[str] = Field(default_factory=list)
+    updated_fields_display: str = ""
+
+
+class CompleteTodoTaskResponse(ActionResult):
+    task_id: str = ""
+    list_id: str = ""
+
+
+class DeleteTodoTaskResponse(ActionResult):
+    task_id: str = ""
+    list_id: str = ""
+
+
+class AddChecklistItemResponse(ActionResult):
+    task_id: str = ""
+    checklist_item_id: str = ""
+    display_name: str = ""
+
+
+class UpdateChecklistItemResponse(ActionResult):
+    task_id: str = ""
+    checklist_item_id: str = ""
+    updated_fields: list[str] = Field(default_factory=list)
+
+
+class DeleteChecklistItemResponse(ActionResult):
+    task_id: str = ""
+    checklist_item_id: str = ""
+
+
+class TodoAttachmentInfo(MCPModel):
+    id: str = ""
+    name: str = ""
+    size_bytes: int = 0
+    size_display: str = ""
+    content_type: str = ""
+    last_modified_at: str = ""
+
+
+class ListTodoAttachmentsResponse(MCPModel):
+    task_id: str = ""
+    count: int = 0
+    attachments: list[TodoAttachmentInfo] = Field(default_factory=list)
+
+
+class DownloadTodoAttachmentResponse(ActionResult):
+    task_id: str = ""
+    attachment_id: str = ""
+    file_path: str = ""
+    filename: str = ""
+    size_bytes: int = 0
+    size_display: str = ""
+    content_type: str = ""
+
+
+class UploadTodoAttachmentResponse(ActionResult):
+    task_id: str = ""
+    attachment_id: str = ""
+    filename: str = ""
+    size_bytes: int = 0
+
+
+class DeleteTodoAttachmentResponse(ActionResult):
+    task_id: str = ""
+    attachment_id: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Delta-query models — role_obot#23, ported from mpalermiti/outlook-mcp's
+# tools/mail_delta.py, calendar_delta.py, contacts_delta.py
+# ---------------------------------------------------------------------------
+
+
+class DeltaItem(FlexibleMCPModel):
+    """One item from a Graph ``$delta`` response.
+
+    Live items carry the raw Graph JSON fields for that resource verbatim
+    (camelCase keys, e.g. ``subject``/``receivedDateTime`` for mail) plus
+    ``is_deleted``. Tombstones (``@removed`` in the Graph response) carry
+    only ``id`` and ``is_deleted=True`` — no other fields.
+    """
+
+    id: str = ""
+    is_deleted: bool = False
+
+
+class MailDeltaResponse(MCPModel):
+    folder: str = ""
+    count: int = 0
+    messages: list[DeltaItem] = Field(default_factory=list)
+    delta_token: str | None = None
+    has_more: bool = False
+
+
+class EventsDeltaResponse(MCPModel):
+    count: int = 0
+    events: list[DeltaItem] = Field(default_factory=list)
+    delta_token: str | None = None
+    has_more: bool = False
+
+
+class ContactsDeltaResponse(MCPModel):
+    count: int = 0
+    contacts: list[DeltaItem] = Field(default_factory=list)
+    delta_token: str | None = None
+    has_more: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Batch triage models — role_obot#23, ported from mpalermiti/outlook-mcp's
+# tools/batch.py
+# ---------------------------------------------------------------------------
+
+
+class BatchTriageResultItem(MCPModel):
+    message_id: str = ""
+    status: str = ""
+    error: str | None = None
+
+
+class BatchTriageResponse(ActionResult):
+    action_applied: str = ""
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    results: list[BatchTriageResultItem] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Digest models — role_obot#23, ported from mpalermiti/outlook-mcp's
+# tools/digest.py
+# ---------------------------------------------------------------------------
+
+
+class DigestUrgentMail(MCPModel):
+    id: str = ""
+    subject: str = ""
+    from_address: str = ""
+    received_at: str = ""
+    is_high_importance: bool = False
+    is_flagged: bool = False
+
+
+class DigestMailSection(MCPModel):
+    new_count: int = 0
+    removed_count: int = 0
+    urgent: list[DigestUrgentMail] = Field(default_factory=list)
+    by_sender: dict[str, int] = Field(default_factory=dict)
+
+
+class DigestEventItem(MCPModel):
+    id: str = ""
+    subject: str = ""
+    start: str = ""
+    end: str = ""
+
+
+class DigestEventsSection(MCPModel):
+    new: list[DigestEventItem] = Field(default_factory=list)
+    cancelled: list[DigestEventItem] = Field(default_factory=list)
+
+
+class DigestContactsSection(MCPModel):
+    new_count: int = 0
+    removed_count: int = 0
+
+
+class DeltaTokens(MCPModel):
+    mail: str | None = None
+    events: str | None = None
+    contacts: str | None = None
+
+
+class ChangesSinceResponse(MCPModel):
+    mail: DigestMailSection = Field(default_factory=DigestMailSection)
+    events: DigestEventsSection = Field(default_factory=DigestEventsSection)
+    contacts: DigestContactsSection = Field(default_factory=DigestContactsSection)
+    delta_tokens: DeltaTokens = Field(default_factory=DeltaTokens)
+    window_start: str = ""
+    window_end: str = ""

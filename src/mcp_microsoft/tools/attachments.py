@@ -6,6 +6,9 @@ All tools use the Microsoft Graph API via the async graph client.
 Implemented:
   - list_attachments
   - download_attachment
+  - save_attachment_to_path (role_obot#23, ported from OraCool/outlook-mcp's
+    tools/email_reader.py — see that function's docstring for the original
+    behavior this mirrors)
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from mcp_microsoft.models import (
     AttachmentInfo,
     DownloadAttachmentResponse,
     ListAttachmentsResponse,
+    SaveAttachmentToPathResponse,
 )
 from mcp_microsoft.graph import get_graph
 
@@ -201,6 +205,110 @@ async def download_attachment_http(
 
 
 # ---------------------------------------------------------------------------
+# save_attachment_to_path (role_obot#23)
+# ---------------------------------------------------------------------------
+#
+# Ported from OraCool/outlook-mcp's save_attachment_to_path (tools/email_reader.py,
+# backed by GraphMailClient.get_attachment_raw_bytes in auth/graph_client.py). The
+# original fetches full attachment metadata (including contentBytes, discarded) via
+# GET .../attachments/{id} and separately streams the binary via GET
+# .../attachments/{id}/$value. This port keeps that two-call shape but trims the
+# metadata call to a $select that excludes contentBytes (guinacio's own
+# list_attachments does the same), and uses GraphClient.get_raw() — already present
+# in graph.py for exactly this purpose — for the binary GET instead of hand-rolling a
+# second httpx call.
+#
+# Unlike download_attachment (which can fall back to returning the file inline over
+# http transport), save_attachment_to_path always requires a server-local path, so
+# there is no http-mode variant: it is only registered in stdio mode (see register()
+# below), matching how download_attachment itself is split by transport.
+
+
+class SaveAttachmentToPathInput(ToolRequestModel):
+    email_id: str
+    attachment_id: str
+    file_path: Path
+    profile: str | None = None
+
+
+async def save_attachment_to_path(
+    params: SaveAttachmentToPathInput,
+) -> SaveAttachmentToPathResponse:
+    """
+    Download an email attachment and write it directly to local disk.
+
+    No base64 round-trip through the tool response — the binary is streamed via
+    Graph's ``$value`` endpoint and written straight to ``file_path``. This is the
+    reliable way to pull a PDF/DOCX/image attachment to disk; routing bytes through
+    an MCP tool response hits context/token limits for anything but tiny files.
+
+    Args:
+        email_id: The Graph message ID.
+        attachment_id: The Graph attachment ID.
+        file_path: Exact target file path, or an existing directory (in which case
+                   the attachment's own filename is used). Missing parent
+                   directories are created automatically.
+        profile: Microsoft 365 profile to use. Omit to use the default profile.
+
+    Returns:
+        Structured save confirmation (path, filename, size, content type), or
+        success=False with an error when the attachment is not a downloadable
+        file attachment (e.g. an itemAttachment/contact/event carried on the
+        message, which Graph's $value endpoint does not serve as a plain file).
+    """
+    if get_app_config().transport == "http":
+        raise ValueError(
+            "save_attachment_to_path is not available in multi-user http mode "
+            "(the server's disk is not the caller's disk); it is only "
+            "registered in stdio mode."
+        )
+
+    g = get_graph(params.profile)
+    base = f"/me/messages/{params.email_id}/attachments/{params.attachment_id}"
+
+    raw_meta = await g.get(base, params={"$select": "id,name,size,contentType"}) or {}
+    odata_type = raw_meta.get("@odata.type", "")
+    if odata_type and odata_type != "#microsoft.graph.fileAttachment":
+        return SaveAttachmentToPathResponse(
+            success=False,
+            action="save_attachment_to_path",
+            email_id=params.email_id,
+            attachment_id=params.attachment_id,
+            error=(
+                f"Unsupported attachment type {odata_type!r} — only file "
+                "attachments can be saved to disk."
+            ),
+        )
+
+    raw_bytes = await g.get_raw(f"{base}/$value")
+
+    att_name = raw_meta.get("name") or "attachment"
+    content_type = raw_meta.get("contentType") or "application/octet-stream"
+
+    target = params.file_path
+    if target.exists() and target.is_dir():
+        safe_name = Path(att_name).name  # strip any directory components
+        if not safe_name or safe_name.startswith("."):
+            safe_name = "attachment"
+        target = target / safe_name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(raw_bytes)
+
+    size_bytes = len(raw_bytes)
+    return SaveAttachmentToPathResponse(
+        success=True,
+        action="save_attachment_to_path",
+        email_id=params.email_id,
+        attachment_id=params.attachment_id,
+        file_path=str(target),
+        filename=att_name,
+        size_bytes=size_bytes,
+        size_display=format_size_display(size_bytes),
+        content_type=content_type,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 def register(server) -> None:
@@ -215,3 +323,4 @@ def register(server) -> None:
         )
     else:
         register_tool(server, download_attachment, annotations=WRITE_TOOL)
+        register_tool(server, save_attachment_to_path, annotations=WRITE_TOOL)

@@ -151,6 +151,37 @@ def resolve_upload_global_budget_bytes(config: AppConfig | None = None) -> int:
     return mb * 1024 * 1024
 
 
+def is_todo_enabled(config: AppConfig | None = None) -> bool:
+    """Return True when Microsoft To Do (Tasks) tools should be registered.
+
+    role_obot#23. Unlike Teams/SharePoint this defaults ON in both transports
+    (no corporate-account detection) — To Do is a standard mailbox feature,
+    not an optional add-on service. It does add one new delegated scope
+    (``Tasks.ReadWrite``, see ``profiles.TODO_SCOPES``) that is requested at
+    consent time whenever this flag resolves True. Set ``MCP_ENABLE_TODO=false``
+    to omit the tool group (and the scope request) entirely.
+    """
+    runtime_config = config or get_app_config()
+    explicit = runtime_config.enable_todo
+    if explicit is not None:
+        return explicit
+    return True
+
+
+def is_delta_enabled(config: AppConfig | None = None) -> bool:
+    """Return True when delta-sync, batch-triage, and digest tools should be registered.
+
+    role_obot#23. Defaults ON for the same reason as :func:`is_todo_enabled` —
+    delta queries read the same mailbox/calendar/contacts a caller can already
+    list. Set ``MCP_ENABLE_DELTA=false`` to omit the tool group entirely.
+    """
+    runtime_config = config or get_app_config()
+    explicit = runtime_config.enable_delta
+    if explicit is not None:
+        return explicit
+    return True
+
+
 def is_deletion_disabled(config: AppConfig | None = None) -> bool:
     """Return True when destructive hard-delete tools should NOT be registered.
 
