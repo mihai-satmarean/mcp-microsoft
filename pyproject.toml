@@ -1,7 +1,7 @@
 [project]
-name = "mcp-microsoft"
-version = "0.10.0"
-description = "Microsoft 365 MCP server — Mail, Calendar, OneDrive, SharePoint, Contacts, and Teams via Microsoft Graph API for personal (Outlook.com/Live) and enterprise (Azure AD/Entra) accounts"
+name = "office365-unified-mcp"
+version = "0.0.1"
+description = "Unified Microsoft 365 MCP server — Mail, Calendar, OneDrive, SharePoint, Contacts, Teams, To Do, binary attachment download, delta sync, and batch triage via Microsoft Graph API"
 readme = "README.md"
 authors = [
     { name = "Guilherme Inácio", email = "gsilvainacio@gmail.com" }
@@ -26,6 +26,7 @@ dependencies = [
 
 [project.scripts]
 mcp-microsoft = "mcp_microsoft.server:main"
+office365-unified-mcp = "mcp_microsoft.server:main"
 mcp-microsoft-setup = "mcp_microsoft.cli:main"
 
 [build-system]

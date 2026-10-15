@@ -488,7 +488,7 @@ def create_mcp_server(config: AppConfig | None = None) -> FastMCP:
     auth = _build_azure_provider(runtime_config) if http_mode else None
     middleware = _build_http_middleware(runtime_config) if http_mode else None
     mcp = FastMCP(
-        "mcp-microsoft",
+        "office365-unified-mcp",
         lifespan=app_lifespan,
         auth=auth,
         middleware=middleware,
